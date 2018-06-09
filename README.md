@@ -1,3 +1,3 @@
-Medical Images Semantic Segmentation (MediSemSeg3D)
+Medical images Semantic Segmentation (MediSemSeg3D)
 
-Train 3D Segmentation models on volumetric medical images
+Train 3D Semantic Segmentation Deep Learning Models on Volumetric Medical Images
