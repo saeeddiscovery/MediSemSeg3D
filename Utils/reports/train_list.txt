@@ -1,0 +1,16 @@
+0	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_06-patient.nii.gz
+1	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_11-patient.nii.gz
+2	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_16-patient.nii.gz
+3	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_01-patient.nii.gz
+4	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_19-patient.nii.gz
+5	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_09-patient.nii.gz
+6	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_12-patient.nii.gz
+7	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_14-patient.nii.gz
+8	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_13-patient.nii.gz
+9	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_03-patient.nii.gz
+10	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_04-patient.nii.gz
+11	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_10-patient.nii.gz
+12	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_17-patient.nii.gz
+13	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_02-patient.nii.gz
+14	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_08-patient.nii.gz
+15	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_20-patient.nii.gz

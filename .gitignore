@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Dataset folder
+/Dataset/
+/tensorboard/
+/Results/
+
+# My docs
+/VSTS.txt
