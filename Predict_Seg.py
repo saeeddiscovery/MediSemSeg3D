@@ -9,6 +9,9 @@ Created on Sat Jun  9 20:19:55 2018
 
 from Models import UNet_3D
 
+run = 'run2'
+resultsPath = './Results/' + run
+    
 def getTestIndices(path):
     text_file = open(path, "r")
     files = text_file.readlines()
@@ -23,8 +26,8 @@ def getTestIndices(path):
 
 from Utils.load_dataset import prepare_dataset
 
-path = './Results/run2/reports/valid_list.txt' 
-testFiles, ids = getTestIndices(path)
+listPath = resultsPath + '/reports/valid_list.txt' 
+testFiles, ids = getTestIndices(listPath)
 
 datasetDir = './Dataset/'
 images, masks, _, _ = prepare_dataset(datasetDir, split=1., scaleFactor=0.5)
@@ -33,7 +36,7 @@ testImages = images[ids]
 '''--------------Build Model--------------'''
 img_size = images.shape[1:]
 model = UNet_3D.UNet_3D(img_size)
-weightsPath ='./Results/run2/weights/UNet_3D_model.hdf5'
+weightsPath =resultsPath + '/weights/UNet_3D_model.hdf5'
 model.load_weights(weightsPath)
 
 '''--------------Prediction---------------'''
@@ -43,7 +46,7 @@ import SimpleITK as sitk
 
 predicted = model.predict(testImages)
 #predicted = np.flipud(predicted)
-predDir = './Results/Predicted/'
+predDir = resultsPath + '/Predicted/'
 if not os.path.exists(predDir):
     os.mkdir(predDir)
 for i in range(len(predicted)):

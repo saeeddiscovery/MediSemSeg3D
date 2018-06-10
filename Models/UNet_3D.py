@@ -21,16 +21,16 @@ def dice_coef_loss(y_true, y_pred):
 
 def ConvBlock(x, filters, kernel, strides):
     x = tf.keras.layers.Conv3D(filters, kernel, strides,
-                               padding='same', activation=None)(x)
+                               padding='same', use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Activation(tf.keras.activations.relu)(x)
+    x = tf.keras.layers.Activation('relu')(x)
     return x
 
 def UpConvBlock(x, filters, kernel, strides):
     x = tf.keras.layers.Conv3DTranspose(filters, kernel, strides,
-                                        padding='same', activation=None)(x)
+                                        padding='same', use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Activation(tf.keras.activations.relu)(x)
+    x = tf.keras.layers.Activation('relu')(x)
     return x
 
 def UNet_3D(img_size, downsize_filters_factor=2):
@@ -65,3 +65,4 @@ if __name__ == '__main__':
                    loss = dice_coef_loss, metrics = ['accuracy'])
     model.summary()    
     tf.keras.utils.plot_model(model, to_file='./UNet_3D_Model.png', show_shapes=True)
+    print('Model structure saved to UNet_3D_Model.png')
