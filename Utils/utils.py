@@ -14,3 +14,10 @@ def visualizeDataset(dataset, plotSize=[4,4]):
         plt.imshow(dataset[num, :, centerSlice, :, 0], cmap='gray')
         plt.axis('off')
     plt.suptitle('Center Coronal Slice\nfrom each training image')
+    
+import re
+def sortHuman(l):
+    convert = lambda text: float(text) if text.isdigit() else text
+    alphanum = lambda key: [convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9])', key)]
+    l.sort(key=alphanum)
+    return l

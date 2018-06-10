@@ -10,15 +10,11 @@ Created on Thu Jun  7 15:33:57 2018
 import os, glob
 
 modelName = 'UNet'
-#modelName = 'VNet'
+modelName = 'UNet+DSM'
+dsmType = 'CAE'
+dsmType = 'CVAE'
 
-import re
-def sort_human(l):
-    convert = lambda text: float(text) if text.isdigit() else text
-    alphanum = lambda key: [convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9])', key)]
-    l.sort(key=alphanum)
-    return l
-
+from Utils.utils import sortHuman
 resultsDir = './Results/'
 if not os.path.exists(resultsDir):
     os.mkdir(resultsDir)
@@ -27,7 +23,7 @@ if os.listdir(resultsDir)==[]:
     os.mkdir(resultsDir+currRun)
 else:
     runs = glob.glob(os.path.join(resultsDir, 'run*'))
-    runs = sort_human(runs)
+    runs = sortHuman(runs)
     currRun = '/run' + str(int(runs[-1][13:])+1)
     os.mkdir(resultsDir+currRun)
 
@@ -46,7 +42,7 @@ dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+
 '''--------------Build Model--------------'''
 
 import tensorflow as tf
-from Models import UNet_3D
+from Models import UNet_3D, CAE_3D, CVAE_3D
 from Utils.utils import myPrint
 import numpy as np
 import datetime
@@ -68,12 +64,33 @@ def summary(model): # Compute number of params in a model (the actual number of 
     myPrint('...Trainable params:  {:,}'.format(trainParams), path=resultsDir+currRun)
 
 img_size = dTrain.shape[1:]
+batch_size = 1
 
 if modelName == 'UNet':
-    model = UNet_3D.UNet_3D(img_size)
+    model = UNet_3D.UNet_3D(img_size) 
+    model.compile(optimizer=tf.keras.optimizers.Adam(),
+                   loss=dice_coef_loss, metrics=['accuracy'])
+elif modelName == 'UNet+DSM':
+    latent_dim = 128
+    segModel = UNet_3D.UNet_3D(img_size)
+    inLayer = tf.keras.layers.Input(shape=img_size)
+    if dsmType == 'CAE':
+        dsmWeightsPath = ''
+        dsmModel = CAE_3D.Encoder(img_size, latent_dim)
+        dsmModel.load_weights(dsmWeightsPath)
+        dsmModel.trainable = False 
+        model = tf.keras.Model(inLayer, dsmModel(segModel(inLayer)))
+        model.compile(optimizer=tf.keras.optimizers.Adam(),
+                       loss=tf.keras.losses.binary_crossentropy, metrics=['accuracy'])
+    elif dsmType == 'CVAE':
+        dsmWeightsPath = ''
+        dsmModel,_, _ = CVAE_3D.CVAE(img_size, batch_size, latent_dim)
+        dsmModel.load_weights(dsmWeightsPath)
+        dsmModel.trainable = False 
+        model = tf.keras.Model(inLayer, [segModel(inLayer), dsmModel(segModel(inLayer))])
+        model.compile(optimizer=tf.keras.optimizers.Adam(),
+                       loss=[dice_coef_loss, tf.keras.losses.binary_crossentropy], metrics=['accuracy'])
     
-model.compile(optimizer=tf.keras.optimizers.Adam(),
-               loss=dice_coef_loss, metrics=['accuracy'])
 summary(model)
 tf.keras.utils.plot_model(model, to_file=resultsDir+currRun+'/reports/' + modelName + '_Model.png', show_shapes=True)
 
@@ -102,8 +119,28 @@ if modelName == 'UNet':
     tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/UNet'+currRun)
     callbacks = [tensorBoard, model_checkpoint, logger]
 
-model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,
-          validation_data=(dValid, mValid), callbacks=callbacks)
+    model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,
+              validation_data=(dValid, mValid), callbacks=callbacks)
+    
+elif modelName == 'UNet+DSM':
+    mTrain_latent = dsmModel.predict(mTrain)
+    mValid_latent = dsmModel.predict(mValid) 
+    #model_file = "UNet_3D_model-{epoch:02d}-{val_loss:.2f}.hdf5"
+    model_file = weightsDir+"/UNet+DSM_3D_model.hdf5"
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_file,
+                                                          monitor='loss',
+                                                          verbose=1,
+                                                          save_best_only=True,
+                                                          save_weights_only=True)
+    logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
+    tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/UNet+DSM'+currRun)
+    callbacks = [tensorBoard, model_checkpoint, logger]
+    if dsmType == 'CAE':
+        model.fit(dTrain, mTrain_latent, shuffle=True, epochs=epochs, batch_size=batch_size,
+                  validation_data=(dValid, mValid_latent), callbacks=callbacks)
+    elif dsmType == 'CVAE':
+        model.fit(dTrain, [mTrain, mTrain_latent], shuffle=True, epochs=epochs, batch_size=batch_size,
+                  validation_data=(dValid, [mValid, mValid_latent]), callbacks=callbacks)        
 
 
 end = datetime.datetime.now()
