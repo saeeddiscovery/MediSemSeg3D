@@ -9,8 +9,9 @@ Created on Thu Jun  7 15:33:57 2018
 
 import os, glob
 
-modelName = 'UNet'
-modelName = 'UNet+DSM'
+#modelName = 'UNet'
+modelName = 'DilatedNet'
+#modelName = 'UNet+DSM'
 dsmType = 'CAE'
 dsmType = 'CVAE'
 
@@ -42,7 +43,7 @@ dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+
 '''--------------Build Model--------------'''
 
 import tensorflow as tf
-from Models import UNet_3D, CAE_3D, CVAE_3D
+from Models import UNet_3D, DilatedNet_3D, CAE_3D, CVAE_3D
 from Utils.utils import myPrint
 import numpy as np
 import datetime
@@ -68,6 +69,10 @@ batch_size = 1
 
 if modelName == 'UNet':
     model = UNet_3D.UNet_3D(img_size) 
+    model.compile(optimizer=tf.keras.optimizers.Adam(),
+                   loss=dice_coef_loss, metrics=['accuracy'])
+if modelName == 'DilatedNet':
+    model = DilatedNet_3D.DilatedNet_3D(img_size) 
     model.compile(optimizer=tf.keras.optimizers.Adam(),
                    loss=dice_coef_loss, metrics=['accuracy'])
 elif modelName == 'UNet+DSM':
@@ -107,16 +112,16 @@ weightsDir = resultsDir+currRun+'/weights'
 if not os.path.exists(weightsDir):
     os.mkdir(weightsDir)
     
-if modelName == 'UNet':
+if modelName == 'UNet' or 'DilatedNet':
     #model_file = "UNet_3D_model-{epoch:02d}-{val_loss:.2f}.hdf5"
-    model_file = weightsDir+"/UNet_3D_model.hdf5"
+    model_file = weightsDir+"/" + modelName + "_3D_model.hdf5"
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_file,
                                                           monitor='loss',
                                                           verbose=1,
                                                           save_best_only=True,
                                                           save_weights_only=True)
     logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
-    tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/UNet'+currRun)
+    tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/'+modelName+currRun)
     callbacks = [tensorBoard, model_checkpoint, logger]
 
     model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,
