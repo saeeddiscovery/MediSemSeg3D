@@ -11,6 +11,8 @@ __pycache__/
 /Dataset/
 /tensorboard/
 /Results/
+/Deep3DSM/
+/Utils/reports/
 
 # My docs
 /VSTS.txt

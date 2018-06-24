@@ -1,9 +1,13 @@
 import os
-def myPrint(text, path):
+def myPrint(text, path, consolePrint=True):
     if not os.path.exists(path+'/reports/'):
         os.mkdir(path+'/reports/')
-    print(text)
+    if consolePrint:
+        print(text)
     print(text, file=open(path+'/reports/output.txt', 'a'))
+    
+def myLog(text, path):
+    myPrint(text, path, consolePrint=False)
   
 def visualizeDataset(dataset, plotSize=[4,4]):
     import matplotlib.pyplot as plt

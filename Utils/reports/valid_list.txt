@@ -1,4 +1,0 @@
-0	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_05-patient.nii.gz
-1	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_18-patient.nii.gz
-2	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_07-patient.nii.gz
-3	C:\Users\user\Desktop\Saeed\MedSemSeg3D\Dataset\Dataset_3DirCab_Preprocessed\liver_15-patient.nii.gz
