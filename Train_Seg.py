@@ -7,44 +7,82 @@ Created on Thu Jun  7 15:33:57 2018
 
 # In the name of GOD
 
+import tensorflow as tf
+K = tf.keras.backend
+num_cores = 4
+GPU = True
+if GPU:
+    num_GPU = 1
+    num_CPU = 1
+else:
+    num_CPU = 1
+    num_GPU = 0
+config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
+        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
+        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
+session = tf.Session(config=config)
+K.set_session(session)
+
 import os, glob
 
+hybridModel = True
 #modelName = 'UNet'
-#modelName = 'DilatedNet'
-modelName = 'UNet+DSM'
-#dsmType = 'CAE'
-dsmType = 'CVAE'
+modelName = 'DilatedNet'
+#modelName = 'DilatedNet2'
+dsmType = 'CAE'
+#dsmType = 'CVAE'
+mask_image = False
 
 from Utils.utils import sortHuman
 resultsDir = './Results/'
 if not os.path.exists(resultsDir):
     os.mkdir(resultsDir)
-if os.listdir(resultsDir)==[]:
+
+runs = glob.glob(os.path.join(resultsDir, 'run*'))
+runs = sortHuman(runs)
+if len(runs) == 0:
     currRun = '/run1'
     os.mkdir(resultsDir+currRun)
 else:
-    runs = glob.glob(os.path.join(resultsDir, 'run*'))
-    runs = sortHuman(runs)
     currRun = '/run' + str(int(runs[-1][13:])+1)
     os.mkdir(resultsDir+currRun)
 
-'''--------------Load Data--------------'''
+import numpy as np
+def maskImages(images, masks):
+    maskedImgs = np.zeros_like(masks)
+    for i in range(len(maskedImgs)):
+        image = images[i,:,:,:,0]
+        mask = masks[i,:,:,:,0]
+        maskedImgs[i,:,:,:,0] = image * mask
+    return maskedImgs
+'''------------------------------- Load Data -------------------------------'''
 
-from Utils.load_dataset import prepare_dataset
+from Utils.load_dataset import prepare_dataset, load_list
  
 datasetDir = './Dataset/'
-dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
+#dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
 
-#-------Visualize Dataset-------#
+train_images = './reports/train_list_images.txt' 
+train_masks = './reports/train_list_masks.txt'
+valid_images = './reports/valid_list_images.txt' 
+valid_masks = './reports/valid_list_masks.txt'
+dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
+mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
+dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
+mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
+
+if mask_image:
+    mTrain_masked = maskImages(dTrain, mTrain)
+    mValid_masked = maskImages(dValid, mValid)
+    
+##-------Visualize Dataset-------#
 #from Utils.utils import visualizeDataset
-#visualizeDataset(dValid, plotSize=[10,11])
-#visualizeDataset(mValid, plotSize=[10,11])
+#visualizeDataset(dTrain, plotSize=[10,11])
+#visualizeDataset(mTrain, plotSize=[10,11])
 
-'''--------------Build Model--------------'''
+'''------------------------------ Build Model ------------------------------'''
 
-import tensorflow as tf
 from Utils.utils import myPrint, myLog
-import numpy as np
 import datetime
 K = tf.keras.backend
 
@@ -66,9 +104,16 @@ def dice_coef(y_true, y_pred, smooth=1.):
 def dice_coef_loss(y_true, y_pred):
     return -dice_coef(y_true, y_pred)
 
-def summary(model): # Compute number of params in a model (the actual number of floats)
+def myLoss(y_true, y_pred):
+    a = 0.5
+    BCE = tf.keras.losses.binary_crossentropy(y_true, y_pred)
+    DCE = -dice_coef(y_true, y_pred)
+    myLoss = a*BCE + (1-a)*DCE
+    return myLoss
+
+def summary(model, modelType): # Compute number of params in a model (the actual number of floats)
     trainParams = sum([np.prod(K.get_value(w).shape) for w in model.trainable_weights])
-    myPrint('------------< Model Summary >------------', path=resultsDir+currRun)
+    myPrint('-------------< {} Model >--------------'.format(modelType), path=resultsDir+currRun)
     myPrint('...Total params:      {:,}'.format(model.count_params()), path=resultsDir+currRun)
     myPrint('...Trainable params:  {:,}'.format(trainParams), path=resultsDir+currRun)
 
@@ -83,78 +128,71 @@ def get_lr_metric(optimizer):
         return optimizer.lr
     return lr
 
-lr = 0.01
-decay = 1e-2
+lr = 0.0005
+decay = 1e-5
 
 if modelName == 'UNet':
     from Models import UNet_3D
-    model = UNet_3D.UNet_3D(img_size) 
-    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                   loss=dice_coef_loss, metrics=['accuracy'],
-                   options=run_opts)
-if modelName == 'DilatedNet':
+    segModel = UNet_3D.UNet_3D(img_size) 
+elif modelName == 'DilatedNet':
     from Models import DilatedNet_3D
-    model = DilatedNet_3D.DilatedNet_3D(img_size) 
+    segModel = DilatedNet_3D.DilatedNet_3D(img_size) 
+elif modelName == 'DilatedNet2':
+    from Models import DilatedNet_3D
+    segModel = DilatedNet_3D.DilatedNet_3D_2(img_size) 
+        
+if not hybridModel:
+    model = segModel
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
                    loss=dice_coef_loss, metrics=['accuracy'],
                    options=run_opts)
-elif modelName == 'UNet+DSM':
-    from Models import UNet_3D
-    latent_dim = 128
-    segModel = UNet_3D.UNet_3D(img_size)
-    inLayer = tf.keras.layers.Input(shape=img_size)
-    if dsmType == 'CAE':
-        from Models import CAE_3D
-        dsmWeightsPath = r'./Deep3DSM/CAE/run-1_b1/CAE_3D_encoder.hdf5'
-        dsmModel = CAE_3D.FullModel(img_size, latent_dim)
-#        dsmModel.load_weights(dsmWeightsPath)
-#        dsmModel.trainable = False 
-        encoder = CAE_3D.get_encoder_from_CAE3D(dsmModel)
-        encoder.load_weights(dsmWeightsPath)
-        encoder.trainable = False
-        tf.keras.utils.plot_model(encoder, to_file=resultsDir+currRun+'/reports/' + modelName + '_Encoder.png', show_shapes=True)
-#        model = tf.keras.Model(inLayer, encoder(segModel(inLayer)))
-        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(segModel(inLayer))])
-#        model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-#                       loss=tf.keras.losses.binary_crossentropy,
-#                       metrics=['accuracy'], options=run_opts)
-        model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                       loss=[dice_coef_loss, tf.keras.losses.binary_crossentropy],
-                       metrics=['accuracy'], options=run_opts)
-    elif dsmType == 'CVAE':
-        from Models import CVAE_3D
-        dsmWeightsPath = r'./Deep3DSM/CVAE/run-1_b1/CVAE_3D_encoder.hdf5'
-        encoder,_, dsmModel = CVAE_3D.CVAE(img_size, batch_size, latent_dim)
-#        dsmModel.load_weights(dsmWeightsPath)
-#        dsmModel.trainable = False 
-        encoder.load_weights(dsmWeightsPath)
-        encoder.trainable = False
-        tf.keras.utils.plot_model(encoder, to_file=resultsDir+currRun+'/reports/' + modelName + '_Encoder.png', show_shapes=True)
-#        model = tf.keras.Model(inLayer, encoder(segModel(inLayer)))
-        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(segModel(inLayer))])
-#        model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-#                       loss=tf.keras.losses.binary_crossentropy,
-#                       metrics=['accuracy'], options=run_opts)
-        model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                       loss=[dice_coef_loss, tf.keras.losses.kullback_leibler_divergence],
-                       metrics=['accuracy'], options=run_opts)
+    myPrint('...Loss: Dice', path=resultsDir+currRun)
+#    myPrint('...Loss: Dice + BCE', path=resultsDir+currRun)
     
-summary(model)
+elif hybridModel:      
+    latent_dim = 64
+    myPrint('...Latent dim: {}'.format(latent_dim), path=resultsDir+currRun)
+    if dsmType == 'CAE':
+        from Deep3DSM.Models import CAE_3D
+        dsmWeightsPath = r'./MediSemSeg3D_results/Deep3DSM/CAE/run-2-64-noisy/weights/CAE_3D_encoder.hdf5'
+        dsmModel = CAE_3D.FullModel(img_size, latent_dim)
+        encoder = CAE_3D.get_encoder_from_CAE3D(dsmModel)
+    elif dsmType == 'CVAE':
+        from Deep3DSM.Models import CVAE_3D
+        dsmWeightsPath = r'./MediSemSeg3D_results/Deep3DSM/CVAE/run-2-64-noisy/weights/CVAE_3D_encoder.hdf5'
+        encoder,_, dsmModel = CVAE_3D.CVAE(img_size, batch_size, latent_dim)
+        
+    encoder.load_weights(dsmWeightsPath)
+    encoder.trainable = False
+    alpha = 0.2
+    inLayer = tf.keras.layers.Input(shape=img_size)
+    if mask_image:
+        outSeg = tf.keras.layers.dot([inLayer, segModel(inLayer)], axes=-1, normalize=True)
+        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(outSeg)])
+    else:
+        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(segModel(inLayer))])
+    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
+                   loss=[dice_coef_loss, tf.keras.losses.binary_crossentropy],
+                   loss_weights = [alpha, 1-alpha],
+                   metrics=['accuracy'], options=run_opts)
+#    model = tf.keras.Model(inLayer, encoder(segModel(inLayer)))
+#    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
+#                   loss=tf.keras.losses.binary_crossentropy,
+#                   metrics=['accuracy'], options=run_opts)
+
+    myPrint('...Loss: {}*Dice + {}*BCE'.format(alpha, 1-alpha), path=resultsDir+currRun)
+        
+    tf.keras.utils.plot_model(encoder, to_file=resultsDir+currRun+'/reports/' + modelName + '_Encoder.png', show_shapes=True)
+    summary(encoder, modelType='Encoder')
+    
+summary(model, modelType='Full')
 tf.keras.utils.plot_model(model, to_file=resultsDir+currRun+'/reports/' + modelName + '_Model.png', show_shapes=True)
 
+'''------------------------------ Callbacks --------------------------------'''
 
-'''--------------Train Model--------------'''
-myPrint('------------< Start Training >-----------', path=resultsDir+currRun)
-start = datetime.datetime.now()
-myPrint('...Start: {}'.format(start.ctime()[:-5]), path=resultsDir+currRun)
-
-epochs = 150
-
-weightsDir = resultsDir+currRun+'/weights'
+weightsDir = resultsDir+currRun+'/weights/'
 if not os.path.exists(weightsDir):
     os.mkdir(weightsDir)
-
-myLog('epoch\tlr\tloss\tval_loss', path=resultsDir+currRun)
 class MyCallback(tf.keras.callbacks.Callback):
     def on_epoch_begin(self,epoch, logs={}):
         # Things done on beginning of epoch. 
@@ -166,67 +204,66 @@ class MyCallback(tf.keras.callbacks.Callback):
 #        lr_with_decay = lr / (1. + decay * (epoch)//2))
         lr_with_decay = lr / (1. + decay * epoch)
         myLog(str(epoch) +'\t' + str(K.eval(lr_with_decay)) +'\t' + str(logs.get("loss")) +'\t' + str(logs.get("val_loss")), path=resultsDir+currRun)
-        
-if modelName == 'UNet' or modelName == 'DilatedNet':
-    model_file = weightsDir+"/" + modelName + "_3D_model-{epoch:02d}-{val_loss:.2f}.hdf5"
-#    model_file = weightsDir+"/" + modelName + "_3D_model.hdf5"
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_file,
-                                                          monitor='val_loss',
-                                                          verbose=1,
-                                                          save_best_only=True,
-                                                          save_weights_only=True)
-    logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
-    tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/'+modelName+currRun)
-    lrs = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lr / (1. + decay * epoch))
-    callbacks = [tensorBoard, model_checkpoint, logger, MyCallback(), lrs]
+modelNameFull =  modelName + '_' + dsmType if hybridModel else modelName      
+#model_file = weightsDir+"/" + modelNameFull + "_3D_model-{epoch:02d}-{val_loss:.2f}.hdf5"
+model_file_v = weightsDir + modelNameFull + "_model_v.hdf5"
+model_file_t = weightsDir + modelNameFull + "_model_t.hdf5"
+model_checkpoint_v = tf.keras.callbacks.ModelCheckpoint(model_file_v,
+                                                      monitor='val_loss',
+                                                      verbose=1,
+                                                      save_best_only=True,
+                                                      save_weights_only=True)
+model_checkpoint_t = tf.keras.callbacks.ModelCheckpoint(model_file_t,
+                                                      monitor='loss',
+                                                      verbose=1,
+                                                      save_best_only=True,
+                                                      save_weights_only=True)
+logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
+tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/'+modelName+currRun)
+lrs = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lr / (1. + decay * epoch))
+callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, MyCallback(), lrs]
 
+'''-------------------------------Train Model-------------------------------'''
+
+myPrint('--------------< Training >---------------', path=resultsDir+currRun)
+start = datetime.datetime.now()
+myPrint('...Start: {}'.format(start.ctime()[:-5]), path=resultsDir+currRun)
+myLog('epoch\tlr\tloss\tval_loss', path=resultsDir+currRun)
+
+epochs = 200
+
+if not hybridModel:
     model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,
-              validation_data=(dValid, mValid), callbacks=callbacks)
+          validation_data=(dValid, mValid), callbacks=callbacks)
     
-elif modelName == 'UNet+DSM':
-    mTrain_latent = np.zeros([len(mTrain), 128], dtype='float32')
-    for i,img in enumerate(mTrain):
-        img = img[np.newaxis,:]
-        print('... Predicting image ' + str(i))
-        mTrain_latent[i] = np.squeeze(encoder.predict(img))
-#        predicted = predicted[::-1]
-    mValid_latent = np.zeros([len(mValid), 128], dtype='float32')  
-    for i,img in enumerate(mValid):
-        img = img[np.newaxis,:]
-        print('... Predicting image ' + str(i))
-        mValid_latent[i] = np.squeeze(encoder.predict(img))
-#        predicted = predicted[::-1]
+elif hybridModel:
+    mTrain_latent = np.zeros([len(mTrain), latent_dim], dtype='float32')
+    mValid_latent = np.zeros([len(mValid), latent_dim], dtype='float32') 
+    if mask_image:
+        for i,img in enumerate(mTrain_masked):
+            img = img[np.newaxis,:]
+            print('... Predicting train image ' + str(i))
+            mTrain_latent[i] = np.squeeze(encoder.predict(img))
+            #predicted = predicted[::-1]
+        for i,img in enumerate(mValid_masked):
+            img = img[np.newaxis,:]
+            print('... Predicting valid image ' + str(i))
+            mValid_latent[i] = np.squeeze(encoder.predict(img))
+            #predicted = predicted[::-1] 
+    else:
+        for i,img in enumerate(mTrain):
+            img = img[np.newaxis,:]
+            print('... Predicting train image ' + str(i))
+            mTrain_latent[i] = np.squeeze(encoder.predict(img))
+            #predicted = predicted[::-1]
+        for i,img in enumerate(mValid):
+            img = img[np.newaxis,:]
+            print('... Predicting valid image ' + str(i))
+            mValid_latent[i] = np.squeeze(encoder.predict(img))
+            #predicted = predicted[::-1]
         
-#    pred0 = np.zeros_like(mValid)   
-#    pred1 = np.zeros([len(mValid), 128], dtype='float32')
-#    for i,img in enumerate(mValid):
-#        img = img[np.newaxis,:]
-#        print('... Predicting image ' + str(i))
-#        pred0[i] = np.squeeze(model.predict(img)[0])[:,:,:,np.newaxis]
-#        pred1[i] = np.squeeze(model.predict(img)[1])
-
-    #model_file = "UNet_3D_model-{epoch:02d}-{val_loss:.2f}.hdf5"
-    model_file = weightsDir+"/UNet+DSM_" + dsmType + "_model.hdf5"
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_file,
-                                                          monitor='loss',
-                                                          verbose=1,
-                                                          save_best_only=True,
-                                                          save_weights_only=True)
-    logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
-    tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/UNet+DSM'+currRun)
-    lrs = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lr / (1. + decay * epoch))
-    callbacks = [tensorBoard, model_checkpoint, logger, MyCallback(), lrs]
-    if dsmType == 'CAE':
-    #    model.fit(dTrain, mTrain_latent, shuffle=True, epochs=epochs, batch_size=batch_size,
-    #              validation_data=(dValid, mValid_latent), callbacks=callbacks)
-        model.fit(dTrain, [mTrain, mTrain_latent], shuffle=True, epochs=epochs, batch_size=batch_size,
-                  validation_data=(dValid, [mValid, mValid_latent]), callbacks=callbacks)   
-    elif dsmType == 'CVAE':
-    #    model.fit(dTrain, mTrain_latent, shuffle=True, epochs=epochs, batch_size=batch_size,
-    #              validation_data=(dValid, mValid_latent), callbacks=callbacks)
-        model.fit(dTrain, [mTrain, mTrain_latent], shuffle=True, epochs=epochs, batch_size=batch_size,
-                  validation_data=(dValid, [mValid, mValid_latent]), callbacks=callbacks)  
-
+    model.fit(dTrain, [mTrain, mTrain_latent], shuffle=True, epochs=epochs, batch_size=batch_size,
+              validation_data=(dValid, [mValid, mValid_latent]), callbacks=callbacks)   
 
 end = datetime.datetime.now()
 elapsed = end-start

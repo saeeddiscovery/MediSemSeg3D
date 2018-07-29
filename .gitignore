@@ -16,3 +16,10 @@ __pycache__/
 
 # My docs
 /VSTS.txt
+
+#Schedule files
+*.cmd
+Train_Seg_*.py
+
+# Results
+/MediSemSeg3D_results/

@@ -122,7 +122,7 @@ def prepare_dataset(datasetDir, split=0.8, padSize=0, shuffle=True, scaleFactor=
 
     return dTrain, mTrain, dValid, mValid
 
-def load_list(imagesListFile, scaleFactor=None):
+def load_list(imagesListFile, scaleFactor=None, logPath='.', savelist=True):
     with open(imagesListFile, 'r') as fileList:
         files = fileList.readlines()
     imgFiles = []
@@ -133,6 +133,8 @@ def load_list(imagesListFile, scaleFactor=None):
     dImages = load_images(imgFiles, padSize=0, scaleFactor=scaleFactor)
 #    print('------------<  Dataset Info >------------')
 #    print('...Test images:      {0}'.format(len(dImages)))
+    if savelist:
+        save_list(imgFiles, logPath+'/reports/'+imagesListFile)
     return dImages, fileNames
 
 def normalize(data):
