@@ -25,9 +25,9 @@ K.set_session(session)
 
 import os, glob
 
-hybridModel = True
-#modelName = 'UNet'
-modelName = 'DilatedNet'
+hybridModel = False
+modelName = 'UNet'
+#modelName = 'DilatedNet'
 #modelName = 'DilatedNet2'
 dsmType = 'CAE'
 #dsmType = 'CVAE'
@@ -60,16 +60,16 @@ def maskImages(images, masks):
 from Utils.load_dataset import prepare_dataset, load_list
  
 datasetDir = './Dataset/'
-#dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
+dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
 
-train_images = './reports/train_list_images.txt' 
-train_masks = './reports/train_list_masks.txt'
-valid_images = './reports/valid_list_images.txt' 
-valid_masks = './reports/valid_list_masks.txt'
-dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
-mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
-dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
-mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
+#train_images = './reports/train_list_images.txt' 
+#train_masks = './reports/train_list_masks.txt'
+#valid_images = './reports/valid_list_images.txt' 
+#valid_masks = './reports/valid_list_masks.txt'
+#dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
+#mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
+#dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
+#mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
 
 if mask_image:
     mTrain_masked = maskImages(dTrain, mTrain)
@@ -105,10 +105,10 @@ def dice_coef_loss(y_true, y_pred):
     return -dice_coef(y_true, y_pred)
 
 def myLoss(y_true, y_pred):
-    a = 0.5
+    a = 0.8
     BCE = tf.keras.losses.binary_crossentropy(y_true, y_pred)
     DCE = -dice_coef(y_true, y_pred)
-    myLoss = a*BCE + (1-a)*DCE
+    myLoss = a*DCE + (1-a)*BCE
     return myLoss
 
 def summary(model, modelType): # Compute number of params in a model (the actual number of floats)
@@ -118,8 +118,8 @@ def summary(model, modelType): # Compute number of params in a model (the actual
     myPrint('...Trainable params:  {:,}'.format(trainParams), path=resultsDir+currRun)
 
 #img_size = dTrain.shape[1:]
-img_size = (128, 128, 128, 1)
-batch_size = 1
+img_size = (None, None, None, 1)
+batch_size = 3
 myPrint('...Input image size: {}'.format(img_size), path=resultsDir+currRun)
 myPrint('...Batch size: {}'.format(batch_size), path=resultsDir+currRun)
 
@@ -144,10 +144,10 @@ elif modelName == 'DilatedNet2':
 if not hybridModel:
     model = segModel
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                   loss=dice_coef_loss, metrics=['accuracy'],
+                   loss=myLoss, metrics=[dice_coef],
                    options=run_opts)
-    myPrint('...Loss: Dice', path=resultsDir+currRun)
-#    myPrint('...Loss: Dice + BCE', path=resultsDir+currRun)
+#    myPrint('...Loss: Dice', path=resultsDir+currRun)
+    myPrint('...Loss: {}*Dice + {}*BCE'.format(0.8, 1-0.8), path=resultsDir+currRun)
     
 elif hybridModel:      
     latent_dim = 64
@@ -230,7 +230,7 @@ start = datetime.datetime.now()
 myPrint('...Start: {}'.format(start.ctime()[:-5]), path=resultsDir+currRun)
 myLog('epoch\tlr\tloss\tval_loss', path=resultsDir+currRun)
 
-epochs = 200
+epochs = 500
 
 if not hybridModel:
     model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,

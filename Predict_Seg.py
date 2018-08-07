@@ -11,11 +11,22 @@ from Models import UNet_3D, DilatedNet_3D
 import os
 import tensorflow as tf
 
-run = 'run4'
+# GPU Memory Management
+import keras.backend as K
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+#config.gpu_options.allocator_type = 'BFC'
+config.gpu_options.per_process_gpu_memory_fraction = 0.8
+sess = tf.Session(config=config)
+K.set_session(sess)
+run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
+    
+
+run = 'run1'
 resultsPath = './Results/' + run
-hybridModel = True
-#modelName = 'UNet'
-modelName = 'DilatedNet'
+hybridModel = False
+modelName = 'UNet'
+#modelName = 'DilatedNet'
 dsmType = 'CAE'
 #dsmType = 'CVAE'
 
@@ -33,18 +44,21 @@ def getIndicesFromFile(path):
 
 '''--------------Load Data--------------'''
 
-#from Utils.load_dataset import prepare_dataset
+from Utils.load_dataset import prepare_dataset, prepare_test
 from Utils.load_dataset import load_list
 
 listPath = resultsPath + '/reports/valid_list_images.txt' 
 testImages, testFiles = load_list(listPath, savelist=False)
 
 #testFiles, ids = getIndicesFromFile(listPath)
-#datasetDir = './Dataset/'
+#datasetDir = './Dataset/Dataset_Test_Preprocessed/'
 #images, masks, _, _ = prepare_dataset(datasetDir, split=1., scaleFactor=0.5)
 #testImages = images[ids]
+#img_size = testImages.shape[1:] 
 
-img_size = testImages.shape[1:]    
+#testImages, testFiles = prepare_test(datasetDir, scaleFactor=0.25)
+  
+img_size = (None, None, None, 1) 
 
 '''--------------Build Model--------------'''
 if modelName == 'UNet':
@@ -87,7 +101,7 @@ predDir = resultsPath + '/Predicted/'
 if not os.path.exists(predDir):
     os.mkdir(predDir)
 predicted = []
-threshold = 0.7
+threshold = 0.1
 
 if (hybridModel == True):
     pred0 = np.zeros_like(testImages)   
@@ -110,13 +124,13 @@ if (hybridModel == True):
 
 else:
     for i,img in enumerate(testImages):
-        img = img[np.newaxis,:]
+        img = img[np.newaxis,:,:,:,np.newaxis]
         print('... Predicting image {} of {}'.format(i+1, len(testImages)))
         predicted = np.squeeze(model.predict(img))
         predicted = predicted[::-1]
         predicted[predicted <= threshold] = 0
         predicted[predicted > threshold] = 1
         volOut = sitk.GetImageFromArray(predicted)
-        outFile = os.path.join(predDir, testFiles[i][:-7]+'_pred.nii.gz')
+        outFile = os.path.join(predDir, os.path.basename(testFiles[i])[:-7]+'_pred.nii.gz')
         sitk.WriteImage(volOut, outFile)
         print('saved as ' + outFile)

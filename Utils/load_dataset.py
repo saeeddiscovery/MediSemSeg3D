@@ -28,7 +28,7 @@ def split_list(img_list, msk_list, split, shuffleList=True):
     valid_list_msk = msk_list[n_train:]
     return train_list_img, valid_list_img, train_list_msk, valid_list_msk
 
-def load_images(images_list, padSize, scaleFactor):
+def load_images(images_list, padSize, scaleFactor, isTest = False):
     noImages = int(images_list.__len__())
     
     if (noImages == 0):
@@ -59,14 +59,19 @@ def load_images(images_list, padSize, scaleFactor):
 
     if scaleFactor == None:
         dImages = np.asarray(dImages)
-        dImages = np.array(dImages[:,:,:,:,np.newaxis], dtype='float32')
     else:
         for i in range(noImages):
-            dImages_zoomed.append(ndimage.zoom(dImages[i], scaleFactor, order=0))
+            tmp = ndimage.zoom(dImages[i], scaleFactor, order=0)
+            dImages_zoomed.append(tmp[:,:,:,np.newaxis])
 #            dTrain_zoomed[i,:,:,:] = ndimage.zoom(dTrain[i], scaleFactor, order=0) #Pooling
         dImages = np.asarray(dImages_zoomed)
-        dImages = dImages[:,:,:,:,np.newaxis]
         
+#    if isTest:
+#        for i in range(len(dImages)):
+#            dImages[i] = np.array(dImages[i][:,:,:,np.newaxis], dtype='float32')
+#    else:
+#        dImages = np.array(dImages[:,:,:,:,np.newaxis], dtype='float32')
+#        
     return dImages
 
 def save_list(images_list, fileName):
@@ -121,6 +126,32 @@ def prepare_dataset(datasetDir, split=0.8, padSize=0, shuffle=True, scaleFactor=
     myPrint('...Validation images: {0}'.format(len(dValid)), path=logPath)
 
     return dTrain, mTrain, dValid, mValid
+
+def prepare_test(datasetDir, padSize=0, shuffle=True, scaleFactor=None, logPath='.'):
+    """ 
+    Function that loads 3D medical image data
+    and prepare it for training
+    
+    Arguments:
+        - datasetDir: The directory that contains all dataset images
+        - padSize: The number of voxels to pad
+            `Default`: zero (no padding)
+        - ScaleFactor: Defines the scale of the data (0.5 -> 1/2 size)
+            `Default`: None (No scale)
+    """
+    img_addrs=[]
+    imgs = glob.glob(os.path.join(datasetDir, '*.nii.gz'))
+    for img in imgs:
+        img_addrs.append(img)
+
+    train_list_img = img_addrs
+
+    dTrain = load_images(train_list_img, padSize, scaleFactor, isTest=True)
+    save_list(train_list_img, logPath+'/reports/train_list_images.txt')
+    myPrint('------------<  Dataset Info >------------', path=logPath)
+    myPrint('...Train images:      {0}'.format(len(dTrain)), path=logPath)
+
+    return dTrain, img_addrs
 
 def load_list(imagesListFile, scaleFactor=None, logPath='.', savelist=True):
     with open(imagesListFile, 'r') as fileList:
