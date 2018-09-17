@@ -22,9 +22,9 @@ K.set_session(sess)
 run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
     
 
-run = 'run1'
+run = 'run2'
 resultsPath = './Results/' + run
-hybridModel = False
+hybridModel = True
 modelName = 'UNet'
 #modelName = 'DilatedNet'
 dsmType = 'CAE'
@@ -48,17 +48,17 @@ from Utils.load_dataset import prepare_dataset, prepare_test
 from Utils.load_dataset import load_list
 
 listPath = resultsPath + '/reports/valid_list_images.txt' 
-testImages, testFiles = load_list(listPath, savelist=False)
+
 
 #testFiles, ids = getIndicesFromFile(listPath)
-#datasetDir = './Dataset/Dataset_Test_Preprocessed/'
+datasetDir = './Dataset/Dataset_Test_Preprocessed/'
 #images, masks, _, _ = prepare_dataset(datasetDir, split=1., scaleFactor=0.5)
 #testImages = images[ids]
-#img_size = testImages.shape[1:] 
 
-#testImages, testFiles = prepare_test(datasetDir, scaleFactor=0.25)
-  
-img_size = (None, None, None, 1) 
+#testImages, testFiles = load_list(listPath, savelist=False)
+testImages, testFiles = prepare_test(datasetDir, scaleFactor=0.25)
+img_size = testImages.shape[1:] 
+#img_size = (128, 128, 128, 1) 
 
 '''--------------Build Model--------------'''
 if modelName == 'UNet':
@@ -83,11 +83,11 @@ if hybridModel:
 #        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(outSeg)])
 #    else:
     model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(segModel(inLayer))])
-    weightsPath =resultsPath + '/weights/' + modelName + '_' + dsmType + '_model_v.hdf5'       
+    weightsPath =resultsPath + '/weights/' + modelName + '_' + dsmType + '_model_t.hdf5'       
 
 else:        
     model = segModel
-    weightsPath =resultsPath + '/weights/' + modelName + '_model_v.hdf5'
+    weightsPath =resultsPath + '/weights/' + modelName + '_model_t.hdf5'
 
 model.load_weights(weightsPath)
 
@@ -115,7 +115,7 @@ if (hybridModel == True):
         predicted[predicted <= threshold] = 0
         predicted[predicted > threshold] = 1
         volOut = sitk.GetImageFromArray(predicted)
-        outFile = os.path.join(predDir, testFiles[i][:-7]+'_pred.nii.gz')
+        outFile = os.path.join(predDir, os.path.basename(testFiles[i])[:-7]+'_pred.nii.gz')
         sitk.WriteImage(volOut, outFile)
         print('saved as ' + outFile)
     outFile = os.path.join(predDir, 'latent')
@@ -124,13 +124,14 @@ if (hybridModel == True):
 
 else:
     for i,img in enumerate(testImages):
-        img = img[np.newaxis,:,:,:,np.newaxis]
+        img = img[np.newaxis,:]
         print('... Predicting image {} of {}'.format(i+1, len(testImages)))
-        predicted = np.squeeze(model.predict(img))
+        predicted = np.squeeze(model.predict_on_batch(img))
         predicted = predicted[::-1]
         predicted[predicted <= threshold] = 0
         predicted[predicted > threshold] = 1
         volOut = sitk.GetImageFromArray(predicted)
+    
         outFile = os.path.join(predDir, os.path.basename(testFiles[i])[:-7]+'_pred.nii.gz')
         sitk.WriteImage(volOut, outFile)
         print('saved as ' + outFile)

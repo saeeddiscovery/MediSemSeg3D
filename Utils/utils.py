@@ -14,8 +14,11 @@ def visualizeDataset(dataset, plotSize=[4,4]):
     plt.figure()
     for num in range(len(dataset)):
         plt.subplot(plotSize[0],plotSize[1],num+1)
-        centerSlice = int(dataset.shape[1]/2)
-        plt.imshow(dataset[num, :, centerSlice, :, 0], cmap='gray')
+        centerSlice = int(dataset.shape[2]/2)
+        if len(dataset.shape) == 5:
+            plt.imshow(dataset[num, :, centerSlice, :, 0], cmap='gray')
+        else:
+            plt.imshow(dataset[num, :, centerSlice, :], cmap='gray')
         plt.axis('off')
     plt.suptitle('Center Coronal Slice\nfrom each training image')
     

@@ -8,24 +8,19 @@ Created on Thu Jun  7 15:33:57 2018
 # In the name of GOD
 
 import tensorflow as tf
-K = tf.keras.backend
-num_cores = 4
-GPU = True
-if GPU:
-    num_GPU = 1
-    num_CPU = 1
-else:
-    num_CPU = 1
-    num_GPU = 0
-config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-session = tf.Session(config=config)
-K.set_session(session)
-
 import os, glob
+K = tf.keras.backend
 
-hybridModel = False
+## GPU Memory Management
+#config = tf.ConfigProto()
+#config.gpu_options.allow_growth = True
+##config.gpu_options.allocator_type = 'BFC'
+#config.gpu_options.per_process_gpu_memory_fraction = 0.9
+#sess = tf.Session(config=config)
+#K.set_session(sess)
+run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
+
+hybridModel = True
 modelName = 'UNet'
 #modelName = 'DilatedNet'
 #modelName = 'DilatedNet2'
@@ -60,16 +55,16 @@ def maskImages(images, masks):
 from Utils.load_dataset import prepare_dataset, load_list
  
 datasetDir = './Dataset/'
-dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
+#dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
 
-#train_images = './reports/train_list_images.txt' 
-#train_masks = './reports/train_list_masks.txt'
-#valid_images = './reports/valid_list_images.txt' 
-#valid_masks = './reports/valid_list_masks.txt'
-#dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
-#mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
-#dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
-#mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
+train_images = './imageLists/train_list_images.txt' 
+train_masks = './imageLists/train_list_masks.txt'
+valid_images = './imageLists/valid_list_images.txt' 
+valid_masks = './imageLists/valid_list_masks.txt'
+dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
+mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
+dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
+mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
 
 if mask_image:
     mTrain_masked = maskImages(dTrain, mTrain)
@@ -77,23 +72,13 @@ if mask_image:
     
 ##-------Visualize Dataset-------#
 #from Utils.utils import visualizeDataset
-#visualizeDataset(dTrain, plotSize=[10,11])
-#visualizeDataset(mTrain, plotSize=[10,11])
+#visualizeDataset(dValid, plotSize=[6,5])
+#visualizeDataset(mValid, plotSize=[6,5])
 
 '''------------------------------ Build Model ------------------------------'''
 
 from Utils.utils import myPrint, myLog
 import datetime
-K = tf.keras.backend
-
-# GPU Memory Management
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-#config.gpu_options.allocator_type = 'BFC'
-config.gpu_options.per_process_gpu_memory_fraction = 0.9
-sess = tf.Session(config=config)
-K.set_session(sess)
-run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
 
 def dice_coef(y_true, y_pred, smooth=1.):
     y_true_f = K.flatten(y_true)
@@ -118,7 +103,9 @@ def summary(model, modelType): # Compute number of params in a model (the actual
     myPrint('...Trainable params:  {:,}'.format(trainParams), path=resultsDir+currRun)
 
 #img_size = dTrain.shape[1:]
-img_size = (None, None, None, 1)
+#img_size = (None, None, None, 1)
+img_size = (128, 128, 128, 1)
+
 batch_size = 3
 myPrint('...Input image size: {}'.format(img_size), path=resultsDir+currRun)
 myPrint('...Batch size: {}'.format(batch_size), path=resultsDir+currRun)
@@ -144,10 +131,10 @@ elif modelName == 'DilatedNet2':
 if not hybridModel:
     model = segModel
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                   loss=myLoss, metrics=[dice_coef],
+                   loss=dice_coef_loss, metrics=[dice_coef],
                    options=run_opts)
-#    myPrint('...Loss: Dice', path=resultsDir+currRun)
-    myPrint('...Loss: {}*Dice + {}*BCE'.format(0.8, 1-0.8), path=resultsDir+currRun)
+    myPrint('...Loss: Dice', path=resultsDir+currRun)
+#    myPrint('...Loss: {}*Dice + {}*BCE'.format(0.8, 1-0.8), path=resultsDir+currRun)
     
 elif hybridModel:      
     latent_dim = 64
@@ -164,7 +151,7 @@ elif hybridModel:
         
     encoder.load_weights(dsmWeightsPath)
     encoder.trainable = False
-    alpha = 0.2
+    alpha = 0.8
     inLayer = tf.keras.layers.Input(shape=img_size)
     if mask_image:
         outSeg = tf.keras.layers.dot([inLayer, segModel(inLayer)], axes=-1, normalize=True)
@@ -174,7 +161,7 @@ elif hybridModel:
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
                    loss=[dice_coef_loss, tf.keras.losses.binary_crossentropy],
                    loss_weights = [alpha, 1-alpha],
-                   metrics=['accuracy'], options=run_opts)
+                   metrics=[dice_coef], options=run_opts)
 #    model = tf.keras.Model(inLayer, encoder(segModel(inLayer)))
 #    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
 #                   loss=tf.keras.losses.binary_crossentropy,
@@ -221,7 +208,8 @@ model_checkpoint_t = tf.keras.callbacks.ModelCheckpoint(model_file_t,
 logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log', separator='\t')
 tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/'+modelName+currRun)
 lrs = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lr / (1. + decay * epoch))
-callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, MyCallback(), lrs]
+ReduceLROnPlateau = tf.keras.callbacks.ReduceLROnPlateau()
+callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, MyCallback(), lrs, ReduceLROnPlateau]
 
 '''-------------------------------Train Model-------------------------------'''
 
@@ -230,7 +218,7 @@ start = datetime.datetime.now()
 myPrint('...Start: {}'.format(start.ctime()[:-5]), path=resultsDir+currRun)
 myLog('epoch\tlr\tloss\tval_loss', path=resultsDir+currRun)
 
-epochs = 500
+epochs = 210
 
 if not hybridModel:
     model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,

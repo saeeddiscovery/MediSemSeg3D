@@ -65,13 +65,14 @@ def load_images(images_list, padSize, scaleFactor, isTest = False):
             dImages_zoomed.append(tmp[:,:,:,np.newaxis])
 #            dTrain_zoomed[i,:,:,:] = ndimage.zoom(dTrain[i], scaleFactor, order=0) #Pooling
         dImages = np.asarray(dImages_zoomed)
+    
+    if len(dImages.shape) ==4:    
+        if isTest:
+            for i in range(len(dImages)):
+                dImages[i] = np.array(dImages[i][:,:,:,np.newaxis], dtype='float32')
+        else:
+            dImages = np.array(dImages[:,:,:,:,np.newaxis], dtype='float32')
         
-#    if isTest:
-#        for i in range(len(dImages)):
-#            dImages[i] = np.array(dImages[i][:,:,:,np.newaxis], dtype='float32')
-#    else:
-#        dImages = np.array(dImages[:,:,:,:,np.newaxis], dtype='float32')
-#        
     return dImages
 
 def save_list(images_list, fileName):
@@ -84,7 +85,7 @@ def save_list(images_list, fileName):
             imagesListFile.write(str(i)+"\t{}\n".format(item))
             i+=1
 
-def prepare_dataset(datasetDir, split=0.8, padSize=0, shuffle=True, scaleFactor=None, logPath='.'):
+def prepare_dataset(datasetDir, split=0.9, padSize=0, shuffle=True, scaleFactor=None, logPath='.'):
     """ 
     Function that loads 3D medical image data
     and prepare it for training
@@ -165,7 +166,7 @@ def load_list(imagesListFile, scaleFactor=None, logPath='.', savelist=True):
 #    print('------------<  Dataset Info >------------')
 #    print('...Test images:      {0}'.format(len(dImages)))
     if savelist:
-        save_list(imgFiles, logPath+'/reports/'+imagesListFile)
+        save_list(imgFiles, logPath+'/reports/'+os.path.basename(imagesListFile))
     return dImages, fileNames
 
 def normalize(data):
