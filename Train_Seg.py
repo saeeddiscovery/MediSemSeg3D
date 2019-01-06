@@ -72,8 +72,8 @@ if mask_image:
     
 ##-------Visualize Dataset-------#
 #from Utils.utils import visualizeDataset
-#visualizeDataset(dValid, plotSize=[6,5])
-#visualizeDataset(mValid, plotSize=[6,5])
+#visualizeDataset(dTrain, plotSize=[5,6])
+#visualizeDataset(mTrain, plotSize=[5,6])
 
 '''------------------------------ Build Model ------------------------------'''
 
@@ -102,9 +102,9 @@ def summary(model, modelType): # Compute number of params in a model (the actual
     myPrint('...Total params:      {:,}'.format(model.count_params()), path=resultsDir+currRun)
     myPrint('...Trainable params:  {:,}'.format(trainParams), path=resultsDir+currRun)
 
-#img_size = dTrain.shape[1:]
+img_size = dTrain.shape[1:]
 #img_size = (None, None, None, 1)
-img_size = (128, 128, 128, 1)
+#img_size = (128, 128, 128, 1)
 
 batch_size = 3
 myPrint('...Input image size: {}'.format(img_size), path=resultsDir+currRun)
@@ -130,9 +130,11 @@ elif modelName == 'DilatedNet2':
         
 if not hybridModel:
     model = segModel
+#    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
+#                   loss=dice_coef_loss, metrics=[dice_coef],
+#                   options=run_opts)
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
-                   loss=dice_coef_loss, metrics=[dice_coef],
-                   options=run_opts)
+                   loss=dice_coef_loss, metrics=[dice_coef])
     myPrint('...Loss: Dice', path=resultsDir+currRun)
 #    myPrint('...Loss: {}*Dice + {}*BCE'.format(0.8, 1-0.8), path=resultsDir+currRun)
     
@@ -161,7 +163,7 @@ elif hybridModel:
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
                    loss=[dice_coef_loss, tf.keras.losses.binary_crossentropy],
                    loss_weights = [alpha, 1-alpha],
-                   metrics=[dice_coef], options=run_opts)
+                   metrics=[dice_coef])
 #    model = tf.keras.Model(inLayer, encoder(segModel(inLayer)))
 #    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
 #                   loss=tf.keras.losses.binary_crossentropy,
@@ -188,7 +190,6 @@ class MyCallback(tf.keras.callbacks.Callback):
         lr = self.model.optimizer.lr
         decay = self.model.optimizer.decay
 #        iterations = self.model.optimizer.iterations
-#        lr_with_decay = lr / (1. + decay * (epoch)//2))
         lr_with_decay = lr / (1. + decay * epoch)
         myLog(str(epoch) +'\t' + str(K.eval(lr_with_decay)) +'\t' + str(logs.get("loss")) +'\t' + str(logs.get("val_loss")), path=resultsDir+currRun)
 modelNameFull =  modelName + '_' + dsmType if hybridModel else modelName      
@@ -209,7 +210,8 @@ logger = tf.keras.callbacks.CSVLogger(resultsDir+currRun+'/reports/training.log'
 tensorBoard = tf.keras.callbacks.TensorBoard(log_dir='./tensorboard/'+modelName+currRun)
 lrs = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lr / (1. + decay * epoch))
 ReduceLROnPlateau = tf.keras.callbacks.ReduceLROnPlateau()
-callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, MyCallback(), lrs, ReduceLROnPlateau]
+#callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, MyCallback(), lrs, ReduceLROnPlateau]
+callbacks = [tensorBoard, model_checkpoint_v, model_checkpoint_t, logger, ReduceLROnPlateau]
 
 '''-------------------------------Train Model-------------------------------'''
 

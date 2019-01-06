@@ -27,7 +27,7 @@ def ConvBlock(x, filters, kernel, strides):
                                padding='same', use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization()(x)
 #    x = tf.keras.layers.Activation('relu', activity_regularizer=tf.keras.regularizers.l1(0.0003))(x)
-    x = tf.keras.layers.Activation('relu')(x)
+    x = tf.keras.layers.Activation(tf.keras.activations.elu)(x)
     return x
 
 def UpConvBlock(x, filters, kernel, strides):
@@ -38,7 +38,7 @@ def UpConvBlock(x, filters, kernel, strides):
 #                                        kernel_regularizer=tf.keras.regularizers.l2(0.0003))(x)
     x = tf.keras.layers.BatchNormalization()(x)
 #    x = tf.keras.layers.Activation('relu', activity_regularizer=tf.keras.regularizers.l1(0.0003))(x)
-    x = tf.keras.layers.Activation('relu')(x)
+    x = tf.keras.layers.Activation(tf.keras.activations.elu)(x)
     return x
 
 def UNet_3D(img_size, d=2):
