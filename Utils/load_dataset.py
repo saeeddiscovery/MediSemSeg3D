@@ -128,7 +128,7 @@ def prepare_dataset(datasetDir, split=0.9, padSize=0, shuffle=True, scaleFactor=
 
     return dTrain, mTrain, dValid, mValid
 
-def prepare_test(datasetDir, padSize=0, shuffle=True, scaleFactor=None, logPath='.'):
+def prepare_test(datasetDir, padSize=0, shuffle=True, scaleFactor=None, logPath='.', isTest=True):
     """ 
     Function that loads 3D medical image data
     and prepare it for training
@@ -147,7 +147,7 @@ def prepare_test(datasetDir, padSize=0, shuffle=True, scaleFactor=None, logPath=
 
     train_list_img = img_addrs
 
-    dTrain = load_images(train_list_img, padSize, scaleFactor, isTest=True)
+    dTrain = load_images(train_list_img, padSize, scaleFactor, isTest=isTest)
     save_list(train_list_img, logPath+'/reports/train_list_images.txt')
     myPrint('------------<  Dataset Info >------------', path=logPath)
     myPrint('...Train images:      {0}'.format(len(dTrain)), path=logPath)

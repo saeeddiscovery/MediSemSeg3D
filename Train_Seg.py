@@ -20,7 +20,7 @@ K = tf.keras.backend
 #K.set_session(sess)
 run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
 
-hybridModel = True
+hybridModel = False
 modelName = 'UNet'
 #modelName = 'DilatedNet'
 #modelName = 'DilatedNet2'

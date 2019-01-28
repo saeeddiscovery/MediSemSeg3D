@@ -10,9 +10,10 @@ Created on Sat Jun  9 20:19:55 2018
 from Models import UNet_3D, DilatedNet_3D
 import os
 import tensorflow as tf
+import time
 
 # GPU Memory Management
-import keras.backend as K
+K = tf.keras.backend
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 #config.gpu_options.allocator_type = 'BFC'
@@ -51,12 +52,13 @@ listPath = resultsPath + '/reports/valid_list_images.txt'
 
 
 #testFiles, ids = getIndicesFromFile(listPath)
-datasetDir = './Dataset/Dataset_Test_Preprocessed/'
+datasetDir = './Dataset/Dataset_MICCAI2007_Preprocessed_eval/'
 #images, masks, _, _ = prepare_dataset(datasetDir, split=1., scaleFactor=0.5)
 #testImages = images[ids]
 
 #testImages, testFiles = load_list(listPath, savelist=False)
-testImages, testFiles = prepare_test(datasetDir, scaleFactor=0.25)
+#testImages, testFiles = prepare_test(datasetDir, scaleFactor=0.25)
+testImages, testFiles = prepare_test(datasetDir, shuffle=False, isTest=False)
 img_size = testImages.shape[1:] 
 #img_size = (128, 128, 128, 1) 
 
@@ -83,11 +85,11 @@ if hybridModel:
 #        model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(outSeg)])
 #    else:
     model = tf.keras.Model(inLayer, [segModel(inLayer), encoder(segModel(inLayer))])
-    weightsPath =resultsPath + '/weights/' + modelName + '_' + dsmType + '_model_t.hdf5'       
+    weightsPath =resultsPath + '/weights/' + modelName + '_' + dsmType + '_model_v.hdf5'       
 
 else:        
     model = segModel
-    weightsPath =resultsPath + '/weights/' + modelName + '_model_t.hdf5'
+    weightsPath =resultsPath + '/weights/' + modelName + '_model_v.hdf5'
 
 model.load_weights(weightsPath)
 
@@ -109,7 +111,10 @@ if (hybridModel == True):
     for i,img in enumerate(testImages):
         img = img[np.newaxis,:]
         print('... Predicting image {} of {}'.format(i+1, len(testImages)))
+        start = time.time()
         pred0[i] = np.squeeze(model.predict(img)[0])[:,:,:,np.newaxis]
+        dur = time.time() - start
+        print("duration: " , dur)
         pred1[i] = np.squeeze(model.predict(img)[1])
         predicted = pred0[i][::-1]
         predicted[predicted <= threshold] = 0
