@@ -11,6 +11,7 @@ from Models import UNet_3D, DilatedNet_3D
 import os
 import tensorflow as tf
 import time
+from Utils.utils import getLargestCC
 
 # GPU Memory Management
 K = tf.keras.backend
@@ -119,6 +120,8 @@ if (hybridModel == True):
         predicted = pred0[i][::-1]
         predicted[predicted <= threshold] = 0
         predicted[predicted > threshold] = 1
+        predicted = np.squeeze(predicted)
+        predicted = getLargestCC(predicted)
         volOut = sitk.GetImageFromArray(predicted)
         outFile = os.path.join(predDir, os.path.basename(testFiles[i])[:-7]+'_pred.nii.gz')
         sitk.WriteImage(volOut, outFile)
@@ -135,8 +138,9 @@ else:
         predicted = predicted[::-1]
         predicted[predicted <= threshold] = 0
         predicted[predicted > threshold] = 1
+        predicted = getLargestCC(predicted)
+        predicted = np.squeeze(predicted)
         volOut = sitk.GetImageFromArray(predicted)
-    
         outFile = os.path.join(predDir, os.path.basename(testFiles[i])[:-7]+'_pred.nii.gz')
         sitk.WriteImage(volOut, outFile)
         print('saved as ' + outFile)

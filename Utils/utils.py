@@ -28,3 +28,13 @@ def sortHuman(l):
     alphanum = lambda key: [convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9])', key)]
     l.sort(key=alphanum)
     return l
+
+import numpy as np
+from skimage.measure import label
+def getLargestCC(segmentation):
+    labels = label(segmentation) # Convert each connected component to a label
+    cnt = np.bincount(labels.flat) # Count each label
+    cnt[0] = 0 # Background label count set to zero
+    largestCC = labels == np.argmax(cnt) # Get the largest label
+    largestCC = largestCC.astype(int) # Convert bool to int image
+    return largestCC
