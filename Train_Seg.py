@@ -20,7 +20,7 @@ K = tf.keras.backend
 #K.set_session(sess)
 run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
 
-hybridModel = False
+hybridModel = True
 modelName = 'UNet'
 #modelName = 'DilatedNet'
 #modelName = 'DilatedNet2'
@@ -55,16 +55,17 @@ def maskImages(images, masks):
 from Utils.load_dataset import prepare_dataset, load_list
  
 datasetDir = './Dataset/'
-#dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1)
+dataFraction = 'full'
+dTrain, mTrain, dValid, mValid = prepare_dataset(datasetDir, logPath=resultsDir+currRun, scaleFactor=1, dataFraction = dataFraction)
 
-train_images = './imageLists/train_list_images.txt' 
-train_masks = './imageLists/train_list_masks.txt'
-valid_images = './imageLists/valid_list_images.txt' 
-valid_masks = './imageLists/valid_list_masks.txt'
-dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
-mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
-dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
-mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
+#train_images = './imageLists/train_list_images.txt' 
+#train_masks = './imageLists/train_list_masks.txt'
+#valid_images = './imageLists/valid_list_images.txt' 
+#valid_masks = './imageLists/valid_list_masks.txt'
+#dTrain, _ = load_list(train_images, logPath=resultsDir+currRun)
+#mTrain, _ = load_list(train_masks, logPath=resultsDir+currRun)
+#dValid, _ = load_list(valid_images, logPath=resultsDir+currRun)
+#mValid, _ = load_list(valid_masks, logPath=resultsDir+currRun)
 
 if mask_image:
     mTrain_masked = maskImages(dTrain, mTrain)
@@ -106,7 +107,7 @@ img_size = dTrain.shape[1:]
 #img_size = (None, None, None, 1)
 #img_size = (128, 128, 128, 1)
 
-batch_size = 3
+batch_size = 2
 myPrint('...Input image size: {}'.format(img_size), path=resultsDir+currRun)
 myPrint('...Batch size: {}'.format(batch_size), path=resultsDir+currRun)
 
@@ -143,12 +144,12 @@ elif hybridModel:
     myPrint('...Latent dim: {}'.format(latent_dim), path=resultsDir+currRun)
     if dsmType == 'CAE':
         from Deep3DSM.Models import CAE_3D
-        dsmWeightsPath = r'./MediSemSeg3D_results/Deep3DSM/CAE/run-2-64-noisy/weights/CAE_3D_encoder.hdf5'
+        dsmWeightsPath = r'./MediSemSeg_3D_results/Deep3DSM/CAE/run-2-64-noisy/weights/CAE_3D_encoder.hdf5'
         dsmModel = CAE_3D.FullModel(img_size, latent_dim)
         encoder = CAE_3D.get_encoder_from_CAE3D(dsmModel)
     elif dsmType == 'CVAE':
         from Deep3DSM.Models import CVAE_3D
-        dsmWeightsPath = r'./MediSemSeg3D_results/Deep3DSM/CVAE/run-2-64-noisy/weights/CVAE_3D_encoder.hdf5'
+        dsmWeightsPath = r'./MediSemSeg_3D_results/Deep3DSM/CVAE/run-2-64-noisy/weights/CVAE_3D_encoder.hdf5'
         encoder,_, dsmModel = CVAE_3D.CVAE(img_size, batch_size, latent_dim)
         
     encoder.load_weights(dsmWeightsPath)
@@ -220,7 +221,7 @@ start = datetime.datetime.now()
 myPrint('...Start: {}'.format(start.ctime()[:-5]), path=resultsDir+currRun)
 myLog('epoch\tlr\tloss\tval_loss', path=resultsDir+currRun)
 
-epochs = 210
+epochs = 200
 
 if not hybridModel:
     model.fit(dTrain, mTrain, shuffle=True, epochs=epochs, batch_size=batch_size,

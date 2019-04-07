@@ -85,7 +85,7 @@ def save_list(images_list, fileName):
             imagesListFile.write(str(i)+"\t{}\n".format(item))
             i+=1
 
-def prepare_dataset(datasetDir, split=0.9, padSize=0, shuffle=True, scaleFactor=None, logPath='.'):
+def prepare_dataset(datasetDir, split=0.9, padSize=0, shuffle=True, scaleFactor=None, dataFraction='full', logPath='.'):
     """ 
     Function that loads 3D medical image data
     and prepare it for training
@@ -114,6 +114,11 @@ def prepare_dataset(datasetDir, split=0.9, padSize=0, shuffle=True, scaleFactor=
 # Second method for Trian/Valid images list creation
     train_list_img, valid_list_img, train_list_msk, valid_list_msk = split_list(img_addrs, msk_addrs, split=split, shuffleList=shuffle)
 
+    if dataFraction == 'half':
+        train_list_img = train_list_img[0:int(len(train_list_img)/2)]
+        valid_list_img = valid_list_img[0:int(len(valid_list_img)/2)]
+        train_list_msk = train_list_msk[0:int(len(train_list_msk)/2)]
+        valid_list_msk = valid_list_msk[0:int(len(valid_list_msk)/2)]
     dTrain = load_images(train_list_img, padSize, scaleFactor)
     mTrain = load_images(train_list_msk, padSize, scaleFactor)
     save_list(train_list_img, logPath+'/reports/train_list_images.txt')

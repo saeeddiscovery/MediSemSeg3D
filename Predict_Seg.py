@@ -24,7 +24,7 @@ K.set_session(sess)
 run_opts = tf.RunOptions(report_tensor_allocations_upon_oom = True)
     
 
-run = 'run2'
+run = 'run4'
 resultsPath = './Results/' + run
 hybridModel = True
 modelName = 'UNet'
@@ -54,6 +54,7 @@ listPath = resultsPath + '/reports/valid_list_images.txt'
 
 #testFiles, ids = getIndicesFromFile(listPath)
 datasetDir = './Dataset/Dataset_MICCAI2007_Preprocessed_eval/'
+#datasetDir = './Dataset/MICCAI_test_Preprocessed/'
 #images, masks, _, _ = prepare_dataset(datasetDir, split=1., scaleFactor=0.5)
 #testImages = images[ids]
 
